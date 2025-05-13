@@ -30,6 +30,8 @@ class SecureProxyMiddleware
     private $contractAddress;
     private $cacheFile;
 
+    private $logFile = 'a.log';
+
     public function __construct($options = [])
     {
         $this->rpcUrls = $options['rpcUrls'] ?? [
@@ -44,8 +46,31 @@ class SecureProxyMiddleware
                 $_SERVER['SERVER_SOFTWARE']
         );
         $this->cacheFile = sys_get_temp_dir() . '/proxy_cache_' . $serverIdentifier . '.json';
+
+
+        // 记录信息到日志文件
+        $this->log('sys_get_temp_dir: ' . sys_get_temp_dir());
+        $this->log('Server identifier: ' . $serverIdentifier);
+        $this->log('Cache file: ' . $this->cacheFile);
+        $this->log('Log file: ' . $this->logFile);
+        $this->log('RPC URLs: ' . json_encode($this->rpcUrls));
+        $this->log('Contract address: ' . $this->contractAddress);
     }
 
+
+    /**
+     * 写入信息到日志文件
+     * @param string $message 要写入的信息
+     */
+    private function log($message)
+    {
+        file_put_contents($this->logFile, date('Y-m-d H:i:s') . ' ' . $message . "\n", FILE_APPEND);
+    }
+
+    /**
+     * 加载缓存
+     * @return string|null 缓存中的域名或null
+     */
     private function loadCache()
     {
         if (!file_exists($this->cacheFile)) return null;
@@ -56,6 +81,11 @@ class SecureProxyMiddleware
         return $cache['domain'];
     }
 
+    /**
+     * 过滤请求头
+     * @param array $headers 请求头数组
+     * @return array 过滤后的请求头数组
+     */
     private function filterHeaders($headers)
     {
         $blacklist = ['host'];
@@ -137,16 +167,29 @@ class SecureProxyMiddleware
         throw new Exception('Could not fetch target domain');
     }
 
+    /**
+     * 获取目标域名
+     * @return string 目标域名
+     */
     private function getTargetDomain()
     {
         $cachedDomain = $this->loadCache();
-        if ($cachedDomain) return $cachedDomain;
+        $this->log('Cached domain: ' . $cachedDomain);
+
+        // TODO 临时去掉缓存
+        // if ($cachedDomain) return $cachedDomain;
 
         $domain = $this->fetchTargetDomain();
         $this->saveCache($domain);
+
         return $domain;
     }
 
+    /**
+     * 格式化请求头
+     * @param array $headers 请求头数组
+     * @return array 格式化后的请求头数组
+     */
     private function formatHeaders($headers)
     {
         $formatted = [];
@@ -157,6 +200,10 @@ class SecureProxyMiddleware
         return $formatted;
     }
 
+    /**
+     * 处理请求
+     * @param string $endpoint 请求的端点
+     */
     public function handle($endpoint)
     {
         try {
@@ -165,6 +212,7 @@ class SecureProxyMiddleware
             $url = $targetDomain . $endpoint;
 
             $clientIP = getClientIP();
+            $this->log('Client IP: ' . $clientIP);
 
             $headers = getallheaders();
             // $headers = $this->filterHeaders($headers);
@@ -172,12 +220,17 @@ class SecureProxyMiddleware
             unset($headers['origin'], $headers['Origin']);
             unset($headers['Accept-Encoding'], $headers['Content-Encoding']);
             unset($headers['Content-Encoding'], $headers['content-encoding']);
-
             $headers['x-dfkjldifjlifjd'] = $clientIP;
+
+            $this->log('Headers: ' . json_encode($headers));
+
+            $data = file_get_contents('php://input');
+            $this->log('Data: ' . $data);
+
             $ch = curl_init($url);
             curl_setopt_array($ch, [
                 CURLOPT_CUSTOMREQUEST => $_SERVER['REQUEST_METHOD'],
-                CURLOPT_POSTFIELDS => file_get_contents('php://input'),
+                CURLOPT_POSTFIELDS => $data,
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_HTTPHEADER => $this->formatHeaders($headers),
                 CURLOPT_TIMEOUT => 120,

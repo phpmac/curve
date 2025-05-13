@@ -5,6 +5,7 @@ services:
 
     volumes:
       - ./:/var/www/html
+      - ./tmp:/tmp
 
     ports:
       - "80:80"
