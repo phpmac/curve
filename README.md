@@ -6,7 +6,6 @@
 {"domain":"https:\/\/dfuykhndfkhjdfnkdfhbdfkjhdbhkf.com","timestamp":1747111019}
 ```
 
-
 看起来是通过文件写入保存一些信息,再通过rpc内部反射记录在链上,信息是加密的
 
 ```sh
