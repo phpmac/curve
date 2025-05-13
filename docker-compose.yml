@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  secureproxy:
+    build: .
+
+    volumes:
+      - ./:/var/www/html
+
+    ports:
+      - "80:80"
+
+    container_name: secureproxy
+
+    restart: unless-stopped 
